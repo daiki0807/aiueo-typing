@@ -163,6 +163,93 @@
     vertical-align: -2px;
     margin-right: 6px;
   }
+  /* ===== ⚾ やきゅうゲーム ===== */
+  .bb-stage { display: none; margin: 4px 0 10px; }
+  body.mode-baseball .bb-stage { display: block; }
+  .bb-score {
+    display: flex; justify-content: center; gap: 24px;
+    font-size: 1.05rem; font-weight: 700; margin-bottom: 8px;
+  }
+  .bb-hr { color: #e8821e; }
+  .bb-miss { color: #8aa0b0; }
+  .bb-score b { font-size: 1.4rem; }
+  .bb-field {
+    position: relative;
+    height: 200px;
+    border-radius: 18px;
+    background: linear-gradient(#bde8ff 0%, #d9f3ff 55%, #8ed98a 55%, #7ccf78 100%);
+    overflow: hidden;
+  }
+  .bb-stand {
+    position: absolute; top: 0; left: 0; right: 0; height: 30%;
+    background: repeating-linear-gradient(90deg,#cfd8e0 0 14px,#c2ccd6 14px 28px);
+    opacity: .5;
+  }
+  .bb-ground {
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 120px; height: 120px;
+    background: #d8a36b;
+    border-radius: 50% 50% 8px 8px;
+    box-shadow: inset 0 4px 0 rgba(255,255,255,.25);
+  }
+  /* ホームベース */
+  .bb-ground::after{
+    content:""; position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    width:16px; height:16px; background:#fff; border-radius:3px;
+  }
+  .bb-batter {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    font-size: 3rem; z-index: 2;
+    transition: transform .12s;
+  }
+  .bb-bat {
+    position: absolute; bottom: 46px; left: calc(50% + 18px);
+    font-size: 2rem; z-index: 3;
+    transform-origin: bottom left;
+  }
+  .bb-ball {
+    position: absolute; bottom: 54px; left: 50%;
+    font-size: 1.8rem; opacity: 0; z-index: 4;
+  }
+  .bb-banner {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%) scale(.4);
+    font-size: 2rem; font-weight: 900; opacity: 0;
+    text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
+    white-space: nowrap; z-index: 5;
+  }
+  /* スイング */
+  .bb-bat.swing { animation: swing .35s ease-out; }
+  @keyframes swing {
+    0% { transform: rotate(60deg); }
+    50% { transform: rotate(-70deg); }
+    100% { transform: rotate(0deg); }
+  }
+  .bb-batter.hit { animation: batterHit .35s; }
+  @keyframes batterHit {
+    0%,100%{ transform: translateX(-50%) rotate(0); }
+    40%{ transform: translateX(-50%) rotate(-12deg); }
+  }
+  /* ホームランの飛球 */
+  .bb-ball.homerun { animation: homerun 1s ease-out forwards; }
+  @keyframes homerun {
+    0%   { opacity:1; bottom:54px; left:50%; transform: scale(1); }
+    100% { opacity:0; bottom:230px; left:88%; transform: scale(.4); }
+  }
+  /* 空振りの落球 */
+  .bb-ball.whiff { animation: whiffball .6s ease-in forwards; }
+  @keyframes whiffball {
+    0%   { opacity:1; bottom:90px; left:42%; }
+    100% { opacity:0; bottom:6px; left:40%; }
+  }
+  .bb-banner.show-hr { animation: bannerPop 1s ease-out; color:#ff7b54; }
+  .bb-banner.show-whiff { animation: bannerPop 1s ease-out; color:#7b95a8; }
+  @keyframes bannerPop {
+    0%   { opacity:0; transform: translateX(-50%) scale(.4); }
+    25%  { opacity:1; transform: translateX(-50%) scale(1.15); }
+    70%  { opacity:1; transform: translateX(-50%) scale(1); }
+    100% { opacity:0; transform: translateX(-50%) scale(1) translateY(-14px); }
+  }
+
   .hands { margin: 6px auto 0; max-width: 460px; }
   .hands svg { width: 100%; height: auto; }
   .hands .palm {
@@ -246,6 +333,13 @@
     <!-- メニュー -->
     <section id="menu" class="menu">
       <div class="row-group">
+        <span class="label">モード</span>
+        <div class="chips" id="modeChips">
+          <button class="chip active" data-mode="practice">📝 れんしゅう</button>
+          <button class="chip" data-mode="baseball">⚾ やきゅうゲーム</button>
+        </div>
+      </div>
+      <div class="row-group">
         <span class="label">れんしゅうする ぎょう</span>
         <div class="chips" id="rowChips"></div>
       </div>
@@ -282,6 +376,23 @@
         <div>タイム<b id="timer">0.0</b></div>
       </div>
       <div class="progress"><i id="progBar"></i></div>
+
+      <!-- ⚾ やきゅうゲーム用ステージ -->
+      <div class="bb-stage" id="bbStage">
+        <div class="bb-score">
+          <span class="bb-hr">⚾ ホームラン <b id="hrCount">0</b></span>
+          <span class="bb-miss">💨 からぶり <b id="whiffCount">0</b></span>
+        </div>
+        <div class="bb-field" id="bbField">
+          <div class="bb-stand"></div>
+          <div class="bb-ground"></div>
+          <div class="bb-batter" id="bbBatter">🧒</div>
+          <div class="bb-bat" id="bbBat">🏏</div>
+          <div class="bb-ball" id="bbBall">⚾</div>
+          <div class="bb-banner" id="bbBanner"></div>
+        </div>
+      </div>
+
       <div class="kana" id="kanaView">あ</div>
       <div class="romaji" id="romajiView"></div>
       <div class="finger-hint" id="fingerHint"></div>
@@ -316,8 +427,9 @@
 
     <!-- 結果 -->
     <section id="result" class="result hidden">
-      <h2>おわり！ よくがんばったね 🎉</h2>
+      <h2 id="resultTitle">おわり！ よくがんばったね 🎉</h2>
       <div class="stamp" id="stamp">⭐️⭐️⭐️</div>
+      <div id="bbResult" style="display:none; font-size:1.2rem; font-weight:700; color:#e8821e; margin-bottom:6px;"></div>
       <div class="stats">
         <div class="stat"><div class="v" id="rTime">0.0</div><div class="l">びょう</div></div>
         <div class="stat"><div class="v" id="rKpm">0</div><div class="l">1ぷんあたり</div></div>
@@ -388,6 +500,9 @@
   let count = 20;
   let showGuide = true;
   let orderMode = "seq"; // "seq" = あいうえお順 / "rand" = バラバラ
+  let gameMode = "practice"; // "practice" / "baseball"
+  let homeRun = 0;   // ホームラン数
+  let whiff = 0;     // からぶり数
   let queue = [];        // 出題リスト [{kana, romajis}]
   let qi = 0;            // 現在の問題index
   let typed = "";        // 現在の入力中ローマ字
@@ -436,6 +551,13 @@
     [...$("countChips").children].forEach(c => c.classList.remove("active"));
     b.classList.add("active");
     count = parseInt(b.dataset.count, 10);
+  });
+  // ----- モードチップ -----
+  $("modeChips").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    [...$("modeChips").children].forEach(c => c.classList.remove("active"));
+    b.classList.add("active");
+    gameMode = b.dataset.mode;
   });
   // ----- じゅんばんチップ -----
   $("orderChips").addEventListener("click", e => {
@@ -487,6 +609,10 @@
   function startGame(){
     queue = buildQueue();
     qi = 0; miss = 0; totalKeys = 0;
+    homeRun = 0; whiff = 0;
+    $("hrCount").textContent = 0;
+    $("whiffCount").textContent = 0;
+    document.body.classList.toggle("mode-baseball", gameMode === "baseball");
     $("qTotal").textContent = queue.length;
     show(elGame);
     loadQuestion();
@@ -623,6 +749,7 @@
       totalKeys++;
       // 完了判定：いずれかの候補と完全一致
       if (q.romajis.includes(typed)){
+        if (gameMode === "baseball") homeRunHit();
         nextQuestion();
       } else {
         renderRomaji();
@@ -634,6 +761,7 @@
       miss++;
       $("missCount").textContent = miss;
       flashError();
+      if (gameMode === "baseball") swingMiss();
     }
   }
 
@@ -642,6 +770,43 @@
     card.classList.remove("shake");
     void card.offsetWidth;
     card.classList.add("shake");
+  }
+
+  // ⚾ ホームラン演出
+  const HR_WORDS = ["ホームラン！🎉", "おおきい！⚾", "かっとばせ！💥", "スタンドイン！🏟️"];
+  function homeRunHit(){
+    homeRun++;
+    $("hrCount").textContent = homeRun;
+    swingBat();
+    playBall("homerun");
+    showBanner(HR_WORDS[Math.floor(Math.random()*HR_WORDS.length)], "show-hr");
+  }
+  // 💨 空振り演出
+  function swingMiss(){
+    whiff++;
+    $("whiffCount").textContent = whiff;
+    swingBat();
+    playBall("whiff");
+    showBanner("空ぶり…💨", "show-whiff");
+  }
+  function swingBat(){
+    const bat = $("bbBat"), batter = $("bbBatter");
+    bat.classList.remove("swing"); batter.classList.remove("hit");
+    void bat.offsetWidth;
+    bat.classList.add("swing"); batter.classList.add("hit");
+  }
+  function playBall(type){
+    const ball = $("bbBall");
+    ball.classList.remove("homerun","whiff");
+    void ball.offsetWidth;
+    ball.classList.add(type);
+  }
+  function showBanner(text, cls){
+    const b = $("bbBanner");
+    b.classList.remove("show-hr","show-whiff");
+    void b.offsetWidth;
+    b.textContent = text;
+    b.classList.add(cls);
   }
 
   function nextQuestion(){
@@ -668,13 +833,28 @@
     else if (acc >= 85) stars = "⭐️⭐️";
     $("stamp").textContent = stars;
     $("progBar").style.width = "100%";
+
+    // ⚾ やきゅうゲームの結果
+    const bb = $("bbResult");
+    if (gameMode === "baseball"){
+      $("resultTitle").textContent = "しあい しゅうりょう！ ⚾";
+      bb.style.display = "block";
+      bb.textContent = `⚾ ホームラン ${homeRun}本 ／ 💨 からぶり ${whiff}回`;
+    } else {
+      $("resultTitle").textContent = "おわり！ よくがんばったね 🎉";
+      bb.style.display = "none";
+    }
     show(elResult);
   }
 
   // ===== ボタン =====
   $("startBtn").addEventListener("click", startGame);
   $("againBtn").addEventListener("click", startGame);
-  $("menuBtn").addEventListener("click", () => { clearInterval(timerId); show(elMenu); });
+  $("menuBtn").addEventListener("click", () => {
+    clearInterval(timerId);
+    document.body.classList.remove("mode-baseball");
+    show(elMenu);
+  });
   document.addEventListener("keydown", onKey);
 
 })();
