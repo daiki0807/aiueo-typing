@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>あいうえお タイピング練習</title>
+<style>
+  :root {
+    --bg: #fdf6e3;
+    --card: #ffffff;
+    --accent: #ff7b54;
+    --accent2: #4fc3a1;
+    --text: #3a3a3a;
+    --muted: #9a9a9a;
+    --ok: #4fc3a1;
+    --ng: #ff5a5a;
+    --shadow: 0 8px 24px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin: 8px 0 4px;
+    color: var(--accent);
+    letter-spacing: .05em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: .95rem; }
+
+  .card {
+    background: var(--card);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 720px;
+    padding: 28px 24px 32px;
+  }
+
+  /* ===== スタート画面 ===== */
+  .menu h2 { margin: 0 0 16px; font-size: 1.2rem; }
+  .row-group { margin-bottom: 22px; }
+  .row-group > .label { font-weight: 700; margin-bottom: 10px; display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    border: 2px solid #e7e2d4;
+    background: #fff;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+    color: var(--text);
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 700;
+  }
+  .chip.green.active { background: var(--accent2); border-color: var(--accent2); }
+
+  .start-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 16px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform .1s, background .15s;
+  }
+  .start-btn:hover { background: #ff6438; }
+  .start-btn:active { transform: scale(.98); }
+
+  /* ===== ゲーム画面 ===== */
+  .game { text-align: center; }
+  .hud {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    font-size: .95rem;
+    color: var(--muted);
+  }
+  .hud b { display:block; font-size: 1.5rem; color: var(--text); }
+
+  .kana {
+    font-size: 5.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 10px 0 4px;
+    letter-spacing: .05em;
+  }
+  .kana .done { color: var(--ok); }
+  .kana .next { color: var(--accent); }
+  .kana .rest { color: #d8d3c4; }
+
+  .romaji {
+    font-size: 2rem;
+    letter-spacing: .25em;
+    margin: 8px 0 24px;
+    height: 2.4rem;
+    font-family: "Courier New", monospace;
+  }
+  .romaji .typed { color: var(--ok); }
+  .romaji .cursor { color: var(--accent); border-bottom: 4px solid var(--accent); }
+  .romaji .untyped { color: #c9c4b6; }
+
+  .progress {
+    height: 12px;
+    background: #eee7d6;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .progress > i {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: var(--accent2);
+    transition: width .2s;
+  }
+  .shake { animation: shake .25s; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-8px)}
+    75%{transform:translateX(8px)}
+  }
+
+  .hint {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-top: 16px;
+  }
+  .finger-hint {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 4px 0 14px;
+    min-height: 1.5em;
+  }
+  .finger-hint .dot {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  .hands { margin: 6px auto 0; max-width: 460px; }
+  .hands svg { width: 100%; height: auto; }
+  .hands .palm {
+    fill: #f0e9d8; stroke: #d9d2bf; stroke-width: 2;
+  }
+  .hands .finger {
+    fill: #f0e9d8; stroke: #d9d2bf; stroke-width: 2;
+    transition: fill .12s, transform .12s;
+  }
+  .hands .finger.active {
+    stroke: #2a2a2a; stroke-width: 3;
+  }
+  .hands .hand-label {
+    fill: #b3ac98; font-size: 16px; text-anchor: middle;
+    font-family: inherit; font-weight: 700;
+  }
+  .keyboard {
+    margin: 14px auto 0;
+    max-width: 600px;
+  }
+  .krow { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+  /* 左手は少し右にずらして両手の隙間を表現 */
+  .krow.r2 { padding-left: 22px; }
+  .krow.r3 { padding-left: 44px; }
+  .key {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: #f3eedd;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem; color: #7a745f;
+    border: 2px solid #e7e2d4;
+    position: relative;
+  }
+  /* ホームポジション(asdf jkl;)の目印 */
+  .key.home::after {
+    content: "";
+    position: absolute; bottom: 5px;
+    width: 14px; height: 3px; border-radius: 2px;
+    background: rgba(0,0,0,.25);
+  }
+  .key.hot {
+    color: #2a2a2a;
+    font-weight: 700;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 0 rgba(0,0,0,.18);
+    border-color: #2a2a2a;
+  }
+  /* 運指レジェンド */
+  .legend {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 6px 14px; margin-top: 14px; font-size: .78rem; color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+  /* ===== 結果画面 ===== */
+  .result { text-align: center; }
+  .result h2 { font-size: 1.6rem; color: var(--accent); margin-bottom: 18px; }
+  .stats { display: flex; justify-content: center; gap: 28px; margin: 18px 0 28px; flex-wrap: wrap; }
+  .stat { background:#faf6ea; border-radius:16px; padding:16px 22px; min-width: 110px; }
+  .stat .v { font-size: 2rem; font-weight: 700; color: var(--text); }
+  .stat .l { font-size: .85rem; color: var(--muted); }
+  .stamp { font-size: 3.5rem; margin: 6px 0; }
+  .btns { display:flex; gap:12px; justify-content:center; flex-wrap: wrap; }
+  .btn2 {
+    padding: 14px 26px; font-size: 1.05rem; font-weight:700;
+    border-radius: 14px; border:none; cursor:pointer; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color:#fff; }
+  .btn-ghost { background:#eee7d6; color: var(--text); }
+
+  .hidden { display: none; }
+  footer { margin-top: 22px; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+  <h1>🐤 あいうえお タイピング</h1>
+  <p class="subtitle">ローマ字で　ひらがなを　うとう！</p>
+
+  <div class="card">
+    <!-- メニュー -->
+    <section id="menu" class="menu">
+      <div class="row-group">
+        <span class="label">れんしゅうする ぎょう</span>
+        <div class="chips" id="rowChips"></div>
+      </div>
+      <div class="row-group">
+        <span class="label">もんだいの かず</span>
+        <div class="chips" id="countChips">
+          <button class="chip green" data-count="10">10もん</button>
+          <button class="chip green active" data-count="20">20もん</button>
+          <button class="chip green" data-count="30">30もん</button>
+        </div>
+      </div>
+      <div class="row-group">
+        <span class="label">じゅんばん</span>
+        <div class="chips" id="orderChips">
+          <button class="chip green active" data-order="seq">あいうえお じゅん</button>
+          <button class="chip green" data-order="rand">バラバラ</button>
+        </div>
+      </div>
+      <div class="row-group">
+        <span class="label">キーボードのガイドを みせる</span>
+        <div class="chips" id="guideChips">
+          <button class="chip green active" data-guide="on">みせる</button>
+          <button class="chip green" data-guide="off">みせない</button>
+        </div>
+      </div>
+      <button class="start-btn" id="startBtn">スタート ▶</button>
+    </section>
+
+    <!-- ゲーム -->
+    <section id="game" class="game hidden">
+      <div class="hud">
+        <div>もんだい<b><span id="qNow">1</span>/<span id="qTotal">20</span></b></div>
+        <div>ミス<b id="missCount">0</b></div>
+        <div>タイム<b id="timer">0.0</b></div>
+      </div>
+      <div class="progress"><i id="progBar"></i></div>
+      <div class="kana" id="kanaView">あ</div>
+      <div class="romaji" id="romajiView"></div>
+      <div class="finger-hint" id="fingerHint"></div>
+      <div class="hands" id="hands">
+        <svg viewBox="0 0 620 250" id="handsSvg" aria-hidden="true">
+          <!-- ひだりて -->
+          <g id="leftHand">
+            <rect class="palm" x="35" y="120" width="150" height="95" rx="34"/>
+            <rect class="finger" id="f-LP" x="40"  y="78" width="28" height="70" rx="14"/>
+            <rect class="finger" id="f-LR" x="72"  y="52" width="28" height="96" rx="14"/>
+            <rect class="finger" id="f-LM" x="104" y="42" width="28" height="106" rx="14"/>
+            <rect class="finger" id="f-LI" x="136" y="60" width="28" height="88" rx="14"/>
+            <rect class="finger thumb" id="f-LT" x="168" y="128" width="26" height="62" rx="13" transform="rotate(38 181 159)"/>
+            <text class="hand-label" x="110" y="240">ひだりて</text>
+          </g>
+          <!-- みぎて -->
+          <g id="rightHand">
+            <rect class="palm" x="435" y="120" width="150" height="95" rx="34"/>
+            <rect class="finger" id="f-RI" x="456" y="60" width="28" height="88" rx="14"/>
+            <rect class="finger" id="f-RM" x="488" y="42" width="28" height="106" rx="14"/>
+            <rect class="finger" id="f-RR" x="520" y="52" width="28" height="96" rx="14"/>
+            <rect class="finger" id="f-RP" x="552" y="78" width="28" height="70" rx="14"/>
+            <rect class="finger thumb" id="f-RT" x="426" y="128" width="26" height="62" rx="13" transform="rotate(-38 439 159)"/>
+            <text class="hand-label" x="510" y="240">みぎて</text>
+          </g>
+        </svg>
+      </div>
+      <div class="keyboard" id="keyboard"></div>
+      <div class="legend" id="legend"></div>
+      <p class="hint" id="hint">ホームポジション（ふ・じ）に ゆびを おいてね</p>
+    </section>
+
+    <!-- 結果 -->
+    <section id="result" class="result hidden">
+      <h2>おわり！ よくがんばったね 🎉</h2>
+      <div class="stamp" id="stamp">⭐️⭐️⭐️</div>
+      <div class="stats">
+        <div class="stat"><div class="v" id="rTime">0.0</div><div class="l">びょう</div></div>
+        <div class="stat"><div class="v" id="rKpm">0</div><div class="l">1ぷんあたり</div></div>
+        <div class="stat"><div class="v" id="rAcc">100%</div><div class="l">せいかくさ</div></div>
+      </div>
+      <div class="btns">
+        <button class="btn2 btn-primary" id="againBtn">もういちど</button>
+        <button class="btn2 btn-ghost" id="menuBtn">メニューへ</button>
+      </div>
+    </section>
+  </div>
+
+  <footer>ローマ字入力で 50音の基礎れんしゅう</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  // ===== 50音データ（行ごと） =====
+  // 各文字に許容するローマ字（複数可）。最初のものをガイド表示に使う。
+  const ROWS = {
+    "あ行": [["あ",["a"]],["い",["i"]],["う",["u"]],["え",["e"]],["お",["o"]]],
+    "か行": [["か",["ka"]],["き",["ki"]],["く",["ku"]],["け",["ke"]],["こ",["ko"]]],
+    "さ行": [["さ",["sa"]],["し",["si","shi"]],["す",["su"]],["せ",["se"]],["そ",["so"]]],
+    "た行": [["た",["ta"]],["ち",["ti","chi"]],["つ",["tu","tsu"]],["て",["te"]],["と",["to"]]],
+    "な行": [["な",["na"]],["に",["ni"]],["ぬ",["nu"]],["ね",["ne"]],["の",["no"]]],
+    "は行": [["は",["ha"]],["ひ",["hi"]],["ふ",["fu","hu"]],["へ",["he"]],["ほ",["ho"]]],
+    "ま行": [["ま",["ma"]],["み",["mi"]],["む",["mu"]],["め",["me"]],["も",["mo"]]],
+    "や行": [["や",["ya"]],["ゆ",["yu"]],["よ",["yo"]]],
+    "ら行": [["ら",["ra"]],["り",["ri"]],["る",["ru"]],["れ",["re"]],["ろ",["ro"]]],
+    "わ行": [["わ",["wa"]],["を",["wo"]],["ん",["nn","xn"]]]
+  };
+  const ROW_NAMES = Object.keys(ROWS);
+
+  // キーボード配列（ガイド表示用）
+  const KEY_LAYOUT = [
+    "qwertyuiop".split(""),
+    "asdfghjkl".split(""),
+    "zxcvbnm".split("")
+  ];
+  // ホームポジションのキー（目印をつける）
+  const HOME_KEYS = new Set(["a","s","d","f","j","k","l"]);
+
+  // ===== 運指（どの指で打つか） =====
+  // 各キー → 指コード
+  const FINGER = {
+    q:"LP", w:"LR", e:"LM", r:"LI", t:"LI",
+    y:"RI", u:"RI", i:"RM", o:"RR", p:"RP",
+    a:"LP", s:"LR", d:"LM", f:"LI", g:"LI",
+    h:"RI", j:"RI", k:"RM", l:"RR",
+    z:"LP", x:"LR", c:"LM", v:"LI", b:"LI",
+    n:"RI", m:"RI"
+  };
+  // 指コード → {なまえ, 色}
+  const FINGER_INFO = {
+    LP: { name: "ひだり こゆび",     color: "#ff8fa3" },
+    LR: { name: "ひだり くすりゆび", color: "#ffb56b" },
+    LM: { name: "ひだり なかゆび",   color: "#f4d03f" },
+    LI: { name: "ひだり ひとさしゆび", color: "#8fd694" },
+    RI: { name: "みぎ ひとさしゆび", color: "#5ec8cf" },
+    RM: { name: "みぎ なかゆび",     color: "#8fb3ff" },
+    RR: { name: "みぎ くすりゆび",   color: "#c79bff" },
+    RP: { name: "みぎ こゆび",       color: "#ff9bd6" }
+  };
+
+  // ===== 状態 =====
+  let selectedRows = new Set(["あ行"]);
+  let count = 20;
+  let showGuide = true;
+  let orderMode = "seq"; // "seq" = あいうえお順 / "rand" = バラバラ
+  let queue = [];        // 出題リスト [{kana, romajis}]
+  let qi = 0;            // 現在の問題index
+  let typed = "";        // 現在の入力中ローマ字
+  let activeRomaji = ""; // 確定したローマ字候補（最初に一致したもの基準）
+  let miss = 0;
+  let totalKeys = 0;     // 正しく打ったキー数
+  let startTime = 0;
+  let timerId = null;
+
+  // ===== DOM =====
+  const $ = (id) => document.getElementById(id);
+  const elMenu = $("menu"), elGame = $("game"), elResult = $("result");
+  const rowChips = $("rowChips");
+
+  // ----- 行チップ生成 -----
+  ROW_NAMES.forEach(name => {
+    const b = document.createElement("button");
+    b.className = "chip" + (selectedRows.has(name) ? " active" : "");
+    b.textContent = name;
+    b.dataset.row = name;
+    b.addEventListener("click", () => {
+      if (selectedRows.has(name)) {
+        if (selectedRows.size > 1) { selectedRows.delete(name); b.classList.remove("active"); }
+      } else {
+        selectedRows.add(name); b.classList.add("active");
+      }
+    });
+    rowChips.appendChild(b);
+  });
+  // ぜんぶ ボタン
+  const allBtn = document.createElement("button");
+  allBtn.className = "chip";
+  allBtn.textContent = "ぜんぶ";
+  allBtn.addEventListener("click", () => {
+    const all = selectedRows.size === ROW_NAMES.length;
+    selectedRows = new Set(all ? ["あ行"] : ROW_NAMES);
+    [...rowChips.querySelectorAll(".chip[data-row]")].forEach(c => {
+      c.classList.toggle("active", selectedRows.has(c.dataset.row));
+    });
+  });
+  rowChips.appendChild(allBtn);
+
+  // ----- 問題数チップ -----
+  $("countChips").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    [...$("countChips").children].forEach(c => c.classList.remove("active"));
+    b.classList.add("active");
+    count = parseInt(b.dataset.count, 10);
+  });
+  // ----- じゅんばんチップ -----
+  $("orderChips").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    [...$("orderChips").children].forEach(c => c.classList.remove("active"));
+    b.classList.add("active");
+    orderMode = b.dataset.order;
+  });
+  // ----- ガイドチップ -----
+  $("guideChips").addEventListener("click", e => {
+    const b = e.target.closest(".chip"); if (!b) return;
+    [...$("guideChips").children].forEach(c => c.classList.remove("active"));
+    b.classList.add("active");
+    showGuide = b.dataset.guide === "on";
+  });
+
+  // ===== 出題作成 =====
+  function buildQueue(){
+    // 行の並び順は ROW_NAMES（あ→か→…）どおりに固定
+    let pool = [];
+    ROW_NAMES.forEach(r => {
+      if (!selectedRows.has(r)) return;
+      ROWS[r].forEach(([kana, romajis]) => pool.push({kana, romajis}));
+    });
+    let list = [];
+    if (orderMode === "seq") {
+      // あいうえお…の順番で、足りなければ最初から繰り返す
+      while (list.length < count) list = list.concat(pool);
+    } else {
+      // バラバラ
+      while (list.length < count) list = list.concat(shuffle(pool.slice()));
+    }
+    return list.slice(0, count);
+  }
+  function shuffle(a){
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ===== 画面遷移 =====
+  function show(section){
+    [elMenu, elGame, elResult].forEach(s => s.classList.add("hidden"));
+    section.classList.remove("hidden");
+  }
+
+  function startGame(){
+    queue = buildQueue();
+    qi = 0; miss = 0; totalKeys = 0;
+    $("qTotal").textContent = queue.length;
+    show(elGame);
+    loadQuestion();
+    startTime = performance.now();
+    clearInterval(timerId);
+    timerId = setInterval(updateTimer, 100);
+  }
+
+  function updateTimer(){
+    const t = (performance.now() - startTime) / 1000;
+    $("timer").textContent = t.toFixed(1);
+  }
+
+  function loadQuestion(){
+    typed = "";
+    const q = queue[qi];
+    // 入力中の基準ローマ字は、打った文字に前方一致する候補を動的に選ぶ
+    activeRomaji = q.romajis[0];
+    $("qNow").textContent = qi + 1;
+    $("missCount").textContent = miss;
+    $("progBar").style.width = (qi / queue.length * 100) + "%";
+    renderKana();
+    renderRomaji();
+    renderKeyboard();
+    renderFingerHint();
+    renderLegend();
+  }
+
+  function renderKana(){
+    // 1文字なのでそのまま大きく
+    $("kanaView").textContent = queue[qi].kana;
+  }
+
+  function renderRomaji(){
+    const v = $("romajiView");
+    const r = activeRomaji;
+    let html = "";
+    for (let i = 0; i < r.length; i++){
+      if (i < typed.length) html += `<span class="typed">${r[i]}</span>`;
+      else if (i === typed.length) html += `<span class="cursor">${r[i]}</span>`;
+      else html += `<span class="untyped">${r[i]}</span>`;
+    }
+    v.innerHTML = html;
+  }
+
+  function renderKeyboard(){
+    const kb = $("keyboard");
+    if (!showGuide){ kb.style.display = "none"; $("legend").style.display = "none"; return; }
+    kb.style.display = "block";
+    $("legend").style.display = "flex";
+    const nextChar = activeRomaji[typed.length];
+    let html = "";
+    KEY_LAYOUT.forEach((rowKeys, ri) => {
+      html += `<div class="krow r${ri+1}">`;
+      rowKeys.forEach(k => {
+        const fc = FINGER[k];
+        const color = fc ? FINGER_INFO[fc].color : "#f3eedd";
+        const hot = (k === nextChar);
+        const home = HOME_KEYS.has(k) ? " home" : "";
+        // 次に打つキーは指の色で塗り、それ以外は薄い色にする
+        const bg = hot ? color : tint(color, 0.18);
+        html += `<div class="key${hot ? " hot" : ""}${home}" style="background:${bg}">${k}</div>`;
+      });
+      html += '</div>';
+    });
+    kb.innerHTML = html;
+  }
+
+  // 色を薄める（白に混ぜる）
+  function tint(hex, ratio){
+    const n = parseInt(hex.slice(1), 16);
+    let r = (n>>16)&255, g = (n>>8)&255, b = n&255;
+    r = Math.round(r + (255-r)*(1-ratio));
+    g = Math.round(g + (255-g)*(1-ratio));
+    b = Math.round(b + (255-b)*(1-ratio));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function renderFingerHint(){
+    const el = $("fingerHint");
+    const nextChar = activeRomaji[typed.length];
+    const fc = FINGER[nextChar];
+    if (!fc){ el.textContent = ""; return; }
+    const info = FINGER_INFO[fc];
+    el.innerHTML = `<span class="dot" style="background:${info.color}"></span>`
+      + `「${nextChar}」は <span style="color:${info.color}">${info.name}</span> で！`;
+    renderHands(fc);
+  }
+
+  // 手の絵：次に使う指だけ色をつける
+  function renderHands(activeFinger){
+    const hands = $("hands");
+    if (!showGuide){ hands.style.display = "none"; return; }
+    hands.style.display = "block";
+    Object.keys(FINGER_INFO).forEach(code => {
+      const el = document.getElementById("f-" + code);
+      if (!el) return;
+      if (code === activeFinger){
+        el.style.fill = FINGER_INFO[code].color;
+        el.classList.add("active");
+      } else {
+        el.style.fill = "";       // CSSの初期色（うすい色）に戻す
+        el.classList.remove("active");
+      }
+    });
+  }
+
+  function renderLegend(){
+    if (!showGuide) return;
+    const el = $("legend");
+    if (el.dataset.built) return; // 一度だけ作る
+    let html = "";
+    Object.values(FINGER_INFO).forEach(info => {
+      html += `<span><i style="background:${info.color}"></i>${info.name}</span>`;
+    });
+    el.innerHTML = html;
+    el.dataset.built = "1";
+  }
+
+  // ===== キー入力 =====
+  function onKey(e){
+    if (elGame.classList.contains("hidden")) return;
+    const key = e.key.toLowerCase();
+    if (key.length !== 1 || !/[a-z]/.test(key)) return;
+    e.preventDefault();
+
+    const q = queue[qi];
+    const attempt = typed + key;
+    // attempt に前方一致する候補があるか
+    const matches = q.romajis.filter(r => r.startsWith(attempt));
+    if (matches.length > 0){
+      typed = attempt;
+      activeRomaji = matches[0];
+      totalKeys++;
+      // 完了判定：いずれかの候補と完全一致
+      if (q.romajis.includes(typed)){
+        nextQuestion();
+      } else {
+        renderRomaji();
+        renderKeyboard();
+        renderFingerHint();
+      }
+    } else {
+      // ミス
+      miss++;
+      $("missCount").textContent = miss;
+      flashError();
+    }
+  }
+
+  function flashError(){
+    const card = $("romajiView");
+    card.classList.remove("shake");
+    void card.offsetWidth;
+    card.classList.add("shake");
+  }
+
+  function nextQuestion(){
+    qi++;
+    if (qi >= queue.length){
+      finish();
+    } else {
+      loadQuestion();
+    }
+  }
+
+  function finish(){
+    clearInterval(timerId);
+    const t = (performance.now() - startTime) / 1000;
+    const kpm = t > 0 ? Math.round(totalKeys / t * 60) : 0;
+    const totalAttempts = totalKeys + miss;
+    const acc = totalAttempts > 0 ? Math.round(totalKeys / totalAttempts * 100) : 100;
+    $("rTime").textContent = t.toFixed(1);
+    $("rKpm").textContent = kpm;
+    $("rAcc").textContent = acc + "%";
+    // スタンプ評価
+    let stars = "⭐️";
+    if (acc >= 95 && kpm >= 120) stars = "⭐️⭐️⭐️";
+    else if (acc >= 85) stars = "⭐️⭐️";
+    $("stamp").textContent = stars;
+    $("progBar").style.width = "100%";
+    show(elResult);
+  }
+
+  // ===== ボタン =====
+  $("startBtn").addEventListener("click", startGame);
+  $("againBtn").addEventListener("click", startGame);
+  $("menuBtn").addEventListener("click", () => { clearInterval(timerId); show(elMenu); });
+  document.addEventListener("keydown", onKey);
+
+})();
+</script>
+</body>
+</html>
