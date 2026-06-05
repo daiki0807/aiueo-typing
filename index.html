@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>あいうえお タイピング練習</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   :root {
     --bg: #fdf6e3;
@@ -175,71 +176,17 @@
   .bb-score b { font-size: 1.4rem; }
   .bb-field {
     position: relative;
-    height: 200px;
+    height: 240px;
     border-radius: 18px;
-    background: linear-gradient(#bde8ff 0%, #d9f3ff 55%, #8ed98a 55%, #7ccf78 100%);
     overflow: hidden;
+    background: linear-gradient(#bfe9ff 0%, #d9f3ff 100%);
   }
-  .bb-stand {
-    position: absolute; top: 0; left: 0; right: 0; height: 30%;
-    background: repeating-linear-gradient(90deg,#cfd8e0 0 14px,#c2ccd6 14px 28px);
-    opacity: .5;
-  }
-  .bb-ground {
-    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 120px; height: 120px;
-    background: #d8a36b;
-    border-radius: 50% 50% 8px 8px;
-    box-shadow: inset 0 4px 0 rgba(255,255,255,.25);
-  }
-  /* ホームベース */
-  .bb-ground::after{
-    content:""; position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
-    width:16px; height:16px; background:#fff; border-radius:3px;
-  }
-  .bb-batter {
-    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-    font-size: 3rem; z-index: 2;
-    transition: transform .12s;
-  }
-  .bb-bat {
-    position: absolute; bottom: 46px; left: calc(50% + 18px);
-    font-size: 2rem; z-index: 3;
-    transform-origin: bottom left;
-  }
-  .bb-ball {
-    position: absolute; bottom: 54px; left: 50%;
-    font-size: 1.8rem; opacity: 0; z-index: 4;
-  }
+  #bbCanvas { display: block; width: 100%; height: 100%; }
   .bb-banner {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%) scale(.4);
     font-size: 2rem; font-weight: 900; opacity: 0;
     text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff;
-    white-space: nowrap; z-index: 5;
-  }
-  /* スイング */
-  .bb-bat.swing { animation: swing .35s ease-out; }
-  @keyframes swing {
-    0% { transform: rotate(60deg); }
-    50% { transform: rotate(-70deg); }
-    100% { transform: rotate(0deg); }
-  }
-  .bb-batter.hit { animation: batterHit .35s; }
-  @keyframes batterHit {
-    0%,100%{ transform: translateX(-50%) rotate(0); }
-    40%{ transform: translateX(-50%) rotate(-12deg); }
-  }
-  /* ホームランの飛球 */
-  .bb-ball.homerun { animation: homerun 1s ease-out forwards; }
-  @keyframes homerun {
-    0%   { opacity:1; bottom:54px; left:50%; transform: scale(1); }
-    100% { opacity:0; bottom:230px; left:88%; transform: scale(.4); }
-  }
-  /* 空振りの落球 */
-  .bb-ball.whiff { animation: whiffball .6s ease-in forwards; }
-  @keyframes whiffball {
-    0%   { opacity:1; bottom:90px; left:42%; }
-    100% { opacity:0; bottom:6px; left:40%; }
+    white-space: nowrap; z-index: 5; pointer-events: none;
   }
   .bb-banner.show-hr { animation: bannerPop 1s ease-out; color:#ff7b54; }
   .bb-banner.show-whiff { animation: bannerPop 1s ease-out; color:#7b95a8; }
@@ -384,11 +331,7 @@
           <span class="bb-miss">💨 からぶり <b id="whiffCount">0</b></span>
         </div>
         <div class="bb-field" id="bbField">
-          <div class="bb-stand"></div>
-          <div class="bb-ground"></div>
-          <div class="bb-batter" id="bbBatter">🧒</div>
-          <div class="bb-bat" id="bbBat">🏏</div>
-          <div class="bb-ball" id="bbBall">⚾</div>
+          <canvas id="bbCanvas"></canvas>
           <div class="bb-banner" id="bbBanner"></div>
         </div>
       </div>
@@ -443,6 +386,189 @@
   </div>
 
   <footer>ローマ字入力で 50音の基礎れんしゅう</footer>
+
+<!-- ===== ⚾ 3Dバッター (Three.js) ===== -->
+<script>
+window.BB3D = (function(){
+  "use strict";
+  let renderer, scene, camera, clock;
+  let batter, armsPivot, ball;
+  let running = false, inited = false;
+  let swinging = false, swingStart = 0, swingType = "";
+  let ballState = null; // {start, type}
+
+  const READY = -1.1;     // バットを構える角度
+  const FOLLOW = 1.9;     // 振り切る角度
+  const SWING_DUR = 0.5;  // スイング時間(秒)
+
+  function init(canvas){
+    if (inited || !window.THREE) return;
+    const w = canvas.clientWidth || 600, h = canvas.clientHeight || 240;
+    renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h, false);
+    renderer.shadowMap.enabled = true;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(40, w/h, 0.1, 100);
+    camera.position.set(4.2, 3.0, 6.4);
+    camera.lookAt(0, 1.6, 0);
+
+    // ライト
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+    sun.position.set(5, 9, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024,1024);
+    scene.add(sun);
+
+    buildField();
+    buildBatter();
+    buildBall();
+
+    clock = new THREE.Clock();
+    inited = true;
+    window.addEventListener("resize", onResize);
+  }
+
+  function mat(color, rough){ return new THREE.MeshStandardMaterial({color, roughness: rough==null?0.8:rough}); }
+
+  function buildField(){
+    // 芝
+    const grass = new THREE.Mesh(new THREE.CircleGeometry(14, 48), mat(0x6fcf6a, 1));
+    grass.rotation.x = -Math.PI/2;
+    grass.receiveShadow = true;
+    scene.add(grass);
+    // バッターボックス(土)
+    const dirt = new THREE.Mesh(new THREE.CircleGeometry(2.4, 40), mat(0xd2a06a, 1));
+    dirt.rotation.x = -Math.PI/2; dirt.position.y = 0.01;
+    dirt.receiveShadow = true;
+    scene.add(dirt);
+    // ホームベース
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.04,5), mat(0xffffff,0.6));
+    plate.position.set(0, 0.03, 0.4);
+    scene.add(plate);
+  }
+
+  function buildBatter(){
+    batter = new THREE.Group();
+    const skin = 0xffd6a5, jersey = 0xff7b54, pants = 0xf2f2f2, cap = 0x2e4a8b;
+
+    // 脚
+    const legGeo = new THREE.CylinderGeometry(0.18,0.16,1.0,12);
+    const legL = new THREE.Mesh(legGeo, mat(pants)); legL.position.set(-0.22,0.5,0); legL.castShadow=true;
+    const legR = legL.clone(); legR.position.x = 0.22;
+    batter.add(legL, legR);
+
+    // 胴体
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.34,1.1,16), mat(jersey));
+    torso.position.y = 1.55; torso.castShadow = true;
+    batter.add(torso);
+
+    // 頭
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.36,24,24), mat(skin,0.6));
+    head.position.y = 2.45; head.castShadow = true;
+    batter.add(head);
+    // 帽子
+    const capTop = new THREE.Mesh(new THREE.SphereGeometry(0.37,20,20,0,Math.PI*2,0,Math.PI/2), mat(cap,0.5));
+    capTop.position.y = 2.55;
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.05,20,1,false,0,Math.PI), mat(cap,0.5));
+    brim.position.set(0,2.5,0.28); brim.rotation.x = 0;
+    batter.add(capTop, brim);
+
+    // 腕＋バット（armsPivot を回してスイング）
+    armsPivot = new THREE.Group();
+    armsPivot.position.set(0.0, 1.95, 0.15);
+    const armGeo = new THREE.CylinderGeometry(0.12,0.11,0.95,12);
+    const armL = new THREE.Mesh(armGeo, mat(jersey)); armL.castShadow=true;
+    armL.position.set(0.18,0,0.0); armL.rotation.z = Math.PI/2.2;
+    const armR = new THREE.Mesh(armGeo, mat(jersey)); armR.castShadow=true;
+    armR.position.set(0.40,0.0,0.0); armR.rotation.z = Math.PI/2.2;
+    // 手の位置（バットの根本）
+    const hands = new THREE.Group();
+    hands.position.set(0.55, 0.05, 0.0);
+    // バット
+    const batGeo = new THREE.CylinderGeometry(0.06,0.10,1.7,14);
+    const batMesh = new THREE.Mesh(batGeo, mat(0xc98a4b,0.5));
+    batMesh.castShadow = true;
+    batMesh.position.set(0, 0.85, 0); // 根本を hands に置き、上へ伸ばす
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.25,12), mat(0x333333,0.7));
+    grip.position.set(0,0.1,0);
+    hands.add(batMesh, grip);
+    armsPivot.add(armL, armR, hands);
+    armsPivot.rotation.y = READY;
+    batter.add(armsPivot);
+
+    batter.position.x = -0.2;
+    batter.rotation.y = -0.35;
+    scene.add(batter);
+  }
+
+  function buildBall(){
+    ball = new THREE.Mesh(new THREE.SphereGeometry(0.16,16,16), mat(0xffffff,0.4));
+    ball.castShadow = true;
+    ball.visible = false;
+    scene.add(ball);
+  }
+
+  function onResize(){
+    if (!renderer) return;
+    const c = renderer.domElement;
+    const w = c.clientWidth, h = c.clientHeight;
+    if (w && h){ renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+  }
+
+  function start(){ if(!inited) return; running = true; onResize(); loop(); }
+  function stop(){ running = false; }
+
+  function swing(type){
+    if (!inited) return;
+    swinging = true; swingType = type; swingStart = clock.getElapsedTime();
+    // ボール発射
+    ballState = { start: swingStart, type };
+    ball.visible = true;
+  }
+
+  function easeOut(t){ return 1 - Math.pow(1-t, 3); }
+
+  function loop(){
+    if (!running) return;
+    requestAnimationFrame(loop);
+    const t = clock.getElapsedTime();
+
+    // アイドルの軽い上下
+    batter.position.y = Math.sin(t*2)*0.03;
+
+    // スイング
+    if (swinging){
+      const p = (t - swingStart) / SWING_DUR;
+      if (p >= 1){ swinging = false; armsPivot.rotation.y = READY; }
+      else { armsPivot.rotation.y = READY + (FOLLOW - READY) * easeOut(p); }
+    } else {
+      armsPivot.rotation.y = READY;
+    }
+
+    // ボールの軌道
+    if (ballState){
+      const bp = (t - ballState.start) / (ballState.type==="homerun" ? 1.1 : 0.6);
+      if (bp >= 1){ ballState = null; ball.visible = false; }
+      else if (ballState.type === "homerun"){
+        // バット付近から右奥の空へ大きく飛ぶ
+        ball.position.set(0.3 + bp*9, 1.6 + Math.sin(bp*Math.PI)*4 + bp*3, 0.2 - bp*3);
+        const s = 1 - bp*0.4; ball.scale.set(s,s,s);
+      } else {
+        // 空振り：投球がミットへ落ちる
+        ball.position.set(-1.5 + bp*1.2, 2.4 - bp*2.0, 1.2 - bp*0.4);
+        ball.scale.set(1,1,1);
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  return { init, start, stop, swing };
+})();
+</script>
 
 <script>
 (function(){
@@ -615,6 +741,15 @@
     document.body.classList.toggle("mode-baseball", gameMode === "baseball");
     $("qTotal").textContent = queue.length;
     show(elGame);
+    if (gameMode === "baseball" && window.BB3D){
+      // canvas はゲーム画面表示後にサイズが確定するので遅らせて初期化
+      requestAnimationFrame(() => {
+        BB3D.init($("bbCanvas"));
+        BB3D.start();
+      });
+    } else if (window.BB3D){
+      BB3D.stop();
+    }
     loadQuestion();
     startTime = performance.now();
     clearInterval(timerId);
@@ -777,29 +912,15 @@
   function homeRunHit(){
     homeRun++;
     $("hrCount").textContent = homeRun;
-    swingBat();
-    playBall("homerun");
+    if (window.BB3D) BB3D.swing("homerun");
     showBanner(HR_WORDS[Math.floor(Math.random()*HR_WORDS.length)], "show-hr");
   }
   // 💨 空振り演出
   function swingMiss(){
     whiff++;
     $("whiffCount").textContent = whiff;
-    swingBat();
-    playBall("whiff");
+    if (window.BB3D) BB3D.swing("whiff");
     showBanner("空ぶり…💨", "show-whiff");
-  }
-  function swingBat(){
-    const bat = $("bbBat"), batter = $("bbBatter");
-    bat.classList.remove("swing"); batter.classList.remove("hit");
-    void bat.offsetWidth;
-    bat.classList.add("swing"); batter.classList.add("hit");
-  }
-  function playBall(type){
-    const ball = $("bbBall");
-    ball.classList.remove("homerun","whiff");
-    void ball.offsetWidth;
-    ball.classList.add(type);
   }
   function showBanner(text, cls){
     const b = $("bbBanner");
@@ -853,6 +974,7 @@
   $("menuBtn").addEventListener("click", () => {
     clearInterval(timerId);
     document.body.classList.remove("mode-baseball");
+    if (window.BB3D) BB3D.stop();
     show(elMenu);
   });
   document.addEventListener("keydown", onKey);
